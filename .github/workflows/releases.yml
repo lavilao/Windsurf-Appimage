@@ -22,7 +22,7 @@ jobs:
           version_url: 'https://windsurf-stable.codeiumdata.com/linux-x64/stable/599ce698a84d43160da884347f22f6b77d0c8415/Windsurf-linux-x64-1.1.2.tar.gz'
           version_file: 'resources/app/package.json'
           version_bash: 'jq -r  .version'
-          version_icon: 'resources/linux/code.png'
+          version_icon: 'code.png'
       - name: Upload artifact
         if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
         uses: actions/upload-artifact@v4
