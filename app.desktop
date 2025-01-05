@@ -16,4 +16,4 @@ Actions=new-empty-window;
 [Desktop Action new-empty-window]
 Name=New Empty Window
 Exec=windsurf --new-window %F
-Icon=windsurf
+Icon=code
