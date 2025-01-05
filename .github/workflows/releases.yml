@@ -1,0 +1,41 @@
+name: Build AppImage
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 */12 * * *"
+  push:
+    branches:
+      - "main"
+
+jobs:
+  version:
+    name: Windsurf AppImage
+    runs-on: ubuntu-20.04
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        id: build
+        uses: valicm/appimage-bash@main
+        with:
+          version_url: 'https://codeium.com/windsurf/download_linux#:~:text=the%20source%20tarball-,here,-.'
+          version_file: 'resources/app/package.json'
+          version_bash: 'jq -r  .version'
+          version_icon: 'windsurf.png'
+      - name: Upload artifact
+        if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_SHORT_NAME }}.AppImage
+          path: 'dist'
+      - name: Release
+        if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          title: ${{ env.APP_NAME }} AppImage ${{ env.APP_VERSION }}
+          automatic_release_tag: latest
+          prerelease: false
+          files: |
+            dist/
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
