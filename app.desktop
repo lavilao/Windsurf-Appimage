@@ -1,0 +1,19 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Windsurf
+GenericName=Windsurf
+Comment=Ai code editor.
+Exec=windsurf --unity-launch %F
+Icon=windsurf
+Categories=TextEditor;Development;IDE;
+StartupWMClass=Code
+StartupNotify=true
+Keywords=Windsurf;Windsurf Code;Code;
+MimeType=text/plain;inode/directory;application/x-code-workspace;
+Actions=new-empty-window;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=windsurf --new-window %F
+Icon=windsurf
