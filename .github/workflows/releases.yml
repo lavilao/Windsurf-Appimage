@@ -17,7 +17,7 @@ jobs:
         id: build
         uses: valicm/appimage-bash@main
         with:
-          version_url: "https://windsurf-stable.codeiumdata.com/linux-x64/stable/599ce698a84d43160da884347f22f6b77d0c8415/Windsurf-linux-x64-1.1.2.tar.gz"
+          version_url: "https://windsurf-stable.codeiumdata.com/linux-x64/stable/aa53e9df956d9bc7cb1835f8eaa47768ce0e5b44/Windsurf-linux-x64-1.2.1.tar.gz"
           version_file: "resources/app/package.json"
           version_bash: "jq -r  .version"
           version_icon: "code.png"
