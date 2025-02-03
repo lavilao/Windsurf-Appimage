@@ -14,53 +14,63 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # Install HTML parsing tool
-      - name: Install dependencies
+      # Get latest version from AUR PKGBUILD
+      - name: Get latest version
+        id: get-version
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pup
+          PKGBUILD_URL="https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf"
+          PKGVER=$(curl -s $PKGBUILD_URL | grep -Po 'pkgver=\K[0-9.]+')
+          echo "VERSION=$PKGVER" >> $GITHUB_ENV
+          echo "DEB_URL=https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt/pool/main/w/windsurf/Windsurf-linux-x64-${PKGVER}.deb" >> $GITHUB_ENV
 
-      # Get latest commit hash from stable directory
-      - name: Get latest commit hash
-        id: get-commit
+      # Download and extract .deb package
+      - name: Handle .deb package
         run: |
-          STABLE_URL="https://windsurf-stable.codeiumdata.com/linux-x64/stable/"
-          COMMIT_HASH=$(curl -s $STABLE_URL | pup 'a attr{href}' | grep -E '^[a-f0-9]+/$' | sed 's/\///' | head -n1)
-          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+          mkdir -p windsorf-deb
+          curl -L ${{ env.DEB_URL }} -o windsorf.deb
+          ar x windsorf.deb --output=windsorf-deb
+          tar -xf windsorf-deb/data.tar.xz --directory=windsorf-deb
 
-      # Get tar.gz filename from commit directory
-      - name: Get tar.gz filename
-        id: get-tar
+      # Prepare AppImage build environment
+      - name: Setup AppImage sources
         run: |
-          COMMIT_URL="https://windsurf-stable.codeiumdata.com/linux-x64/stable/${{ env.COMMIT_HASH }}/"
-          TAR_FILE=$(curl -s $COMMIT_URL | pup 'a attr{href}' | grep -E 'Windsurf-linux-x64-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$' | head -n1)
-          echo "TAR_FILE=$TAR_FILE" >> $GITHUB_ENV
+          mkdir -p appimage-src
+          cp -r windsorf-deb/usr/share/windsurf/* appimage-src/
+          cp windsorf-deb/usr/share/applications/windsurf.desktop appimage-src/
+          cp windsorf-deb/usr/share/windsurf/resources/app/resources/linux/code.png appimage-src/
 
-      # Build AppImage using dynamically generated URL
-      - name: Build
+      # Build AppImage with zsync support
+      - name: Build AppImage
         id: build
         uses: valicm/appimage-bash@main
         with:
-          version_url: "https://windsurf-stable.codeiumdata.com/linux-x64/stable/${{ env.COMMIT_HASH }}/${{ env.TAR_FILE }}"
-          version_file: "resources/app/package.json"
+          version_url: ${{ env.DEB_URL }}
+          version_file: "appimage-src/resources/app/package.json"
           version_bash: "jq -r .version"
-          version_icon: "code.png"
+          version_icon: "appimage-src/code.png"
+          zsync: true
+          app_dir: "appimage-src"
+          app_exec: "bin/windsurf"
 
-      # Upload and release steps remain the same
+      # Upload artifacts including zsync file
       - name: Upload artifact
         if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_SHORT_NAME }}.AppImage
-          path: "dist"
-      
+          name: Windsurf-AppImage
+          path: |
+            dist/*.AppImage
+            dist/*.zsync
+
+      # Release with delta updates support
       - name: Release
         if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
         uses: marvinpinto/action-automatic-releases@latest
         with:
-          title: ${{ env.APP_NAME }} AppImage ${{ env.APP_VERSION }}
+          title: Windsurf AppImage ${{ env.VERSION }}
           automatic_release_tag: latest
           prerelease: false
           files: |
-            dist/
+            dist/*.AppImage
+            dist/*.zsync
           repo_token: ${{ secrets.GITHUB_TOKEN }}
