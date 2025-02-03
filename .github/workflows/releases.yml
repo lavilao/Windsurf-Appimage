@@ -13,20 +13,47 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v2
+
+      # Install HTML parsing tool
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pup
+
+      # Get latest commit hash from stable directory
+      - name: Get latest commit hash
+        id: get-commit
+        run: |
+          STABLE_URL="https://windsurf-stable.codeiumdata.com/linux-x64/stable/"
+          COMMIT_HASH=$(curl -s $STABLE_URL | pup 'a attr{href}' | grep -E '^[a-f0-9]+/$' | sed 's/\///' | head -n1)
+          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+
+      # Get tar.gz filename from commit directory
+      - name: Get tar.gz filename
+        id: get-tar
+        run: |
+          COMMIT_URL="https://windsurf-stable.codeiumdata.com/linux-x64/stable/${{ env.COMMIT_HASH }}/"
+          TAR_FILE=$(curl -s $COMMIT_URL | pup 'a attr{href}' | grep -E 'Windsurf-linux-x64-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$' | head -n1)
+          echo "TAR_FILE=$TAR_FILE" >> $GITHUB_ENV
+
+      # Build AppImage using dynamically generated URL
       - name: Build
         id: build
         uses: valicm/appimage-bash@main
         with:
-          version_url: "https://windsurf-stable.codeiumdata.com/linux-x64/stable/b195fa8f6708b2d32692f64ba2809ad303f79173/Windsurf-linux-x64-1.2.5.tar.gz"
+          version_url: "https://windsurf-stable.codeiumdata.com/linux-x64/stable/${{ env.COMMIT_HASH }}/${{ env.TAR_FILE }}"
           version_file: "resources/app/package.json"
-          version_bash: "jq -r  .version"
+          version_bash: "jq -r .version"
           version_icon: "code.png"
+
+      # Upload and release steps remain the same
       - name: Upload artifact
         if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_SHORT_NAME }}.AppImage
           path: "dist"
+      
       - name: Release
         if: ${{ env.APP_UPDATE_NEEDED == 'true' }}
         uses: marvinpinto/action-automatic-releases@latest
