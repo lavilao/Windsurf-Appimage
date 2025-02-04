@@ -1,11 +1,9 @@
 name: Build and Release AppImage
-
 # Trigger on push of tags (e.g. v1.2.5)
 on:
   workflow_dispatch:
   push:
     tags: ["v*"]
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,15 +13,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
       - name: Install required packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg bsdtar wget
-
+          sudo apt-get install -y dpkg libarchive-tools wget
       - name: Download PKGBUILD from AUR
         run: wget -O PKGBUILD "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf"
-
       - name: Parse PKGBUILD to extract .deb URL
         id: parse_pkgbuild
         shell: bash
@@ -39,15 +34,12 @@ jobs:
           echo "deb_url=${deb_url}"
           echo "::set-output name=deb_url::$deb_url"
           echo "::set-output name=pkgver::$pkgver"
-
       - name: Download the .deb package
         run: wget -O windsurf.deb "${{ steps.parse_pkgbuild.outputs.deb_url }}"
-
       - name: Extract .deb package
         run: |
           mkdir -p extracted
           dpkg-deb -x windsurf.deb extracted
-
       - name: Prepare AppDir structure
         run: |
           rm -rf AppDir
@@ -57,21 +49,17 @@ jobs:
           cp -r extracted/usr/share/windsurf AppDir/usr/share/AppName
           cp extracted/usr/bin/windsurf AppDir/usr/bin/
           cp extracted/usr/share/applications/windsurf.desktop AppDir/usr/share/applications/
-
       - name: Download latest appimagetool (new continuous build)
         run: |
           # Download the officially maintained continuous build from the new repository
           wget -O appimagetool.AppImage "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool.AppImage
-
       - name: Build AppImage and generate zsync file
         run: |
           # Run appimagetool with update information. The -u flag embeds update info (here using the zsync protocol).
           ./appimagetool.AppImage -u "zsync|${UPDATE_URL}" AppDir
-
       - name: List build outputs
         run: ls -lh *.AppImage*  # Should show both the AppImage and its .zsync file
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -79,7 +67,6 @@ jobs:
           path: |
             *.AppImage
             *.AppImage.zsync
-
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -89,7 +76,6 @@ jobs:
         with:
           name: appimage-artifacts
           path: build_artifacts
-
       - name: Create Release and Upload Assets
         uses: ncipollo/release-action@v1
         with:
