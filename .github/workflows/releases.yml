@@ -40,15 +40,19 @@ jobs:
         run: |
           mkdir -p extracted
           dpkg-deb -x windsurf.deb extracted
+      - name: Debug: List extracted files
+        run: |
+          echo "Contents of the extracted .deb package:"
+          find extracted -type f
       - name: Prepare AppDir structure
         run: |
           rm -rf AppDir
           mkdir -p AppDir/usr/bin AppDir/usr/share/AppName AppDir/usr/share/applications
           # Copy the extracted application files.
-          # (Adjust paths if needed; here we assume files installed to /usr/share/windsurf and /usr/bin/windsurf)
-          cp -r extracted/usr/share/windsurf AppDir/usr/share/AppName
-          cp extracted/usr/bin/windsurf AppDir/usr/bin/
-          cp extracted/usr/share/applications/windsurf.desktop AppDir/usr/share/applications/
+          # Adjust paths if needed based on the output of the previous step.
+          cp -r extracted/usr/share/windsurf AppDir/usr/share/AppName || echo "Warning: /usr/share/windsurf not found."
+          cp extracted/usr/bin/windsurf AppDir/usr/bin/ || echo "Error: windsurf binary not found in /usr/bin."
+          cp extracted/usr/share/applications/windsurf.desktop AppDir/usr/share/applications/ || echo "Warning: windsurf.desktop not found."
       - name: Download latest appimagetool (new continuous build)
         run: |
           # Download the officially maintained continuous build from the new repository
