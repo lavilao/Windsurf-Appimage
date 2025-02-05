@@ -1,66 +1,57 @@
-name: Create AppImage from DEB
+steps:
+- name: Checkout repository
+  uses: actions/checkout@v4
 
-on:
-  workflow_dispatch:
+- name: Set up environment
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y wget curl tar libfuse2
 
-jobs:
-  build-appimage:
-    runs-on: ubuntu-latest
+- name: Download DEB package
+  run: wget https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt/pool/main/w/windsurf/Windsurf-linux-x64-1.2.5.deb
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+- name: Extract DEB package
+  run: |
+    mkdir -p deb-extract
+    ar x Windsurf-linux-x64-1.2.5.deb --output=deb-extract
+    cd deb-extract
+    tar xf data.tar.*
 
-    - name: Set up environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget curl tar libfuse2
+- name: Prepare AppDir
+  run: |
+    mkdir -p AppDir/usr
+    cp -r deb-extract/usr/* AppDir/usr/
+    
+    # Create AppRun
+    cat > AppDir/AppRun << 'EOL'
+    #!/bin/bash
+    HERE="$(dirname "$(readlink -f "${0}")")"
+    exec "$HERE/usr/bin/Windsurf" "$@"
+    EOL
+    chmod +x AppDir/AppRun
 
-    - name: Download DEB package
-      run: wget https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt/pool/main/w/windsurf/Windsurf-linux-x64-1.2.5.deb
+    # Create desktop file
+    mkdir -p AppDir/usr/share/applications
+    cat > AppDir/usr/share/applications/Windsurf.desktop << 'EOL'
+    [Desktop Entry]
+    Name=Windsurf
+    Exec=AppRun
+    Icon=windsurf
+    Type=Application
+    Categories=Utility;
+    EOL
 
-    - name: Extract DEB package
-      run: |
-        mkdir -p deb-extract
-        ar x Windsurf-linux-x64-1.2.5.deb --output=deb-extract
-        cd deb-extract
-        tar xf data.tar.*
+- name: Download appimagetool
+  run: |
+    wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+    chmod +x appimagetool-x86_64.AppImage
 
-    - name: Prepare AppDir
-      run: |
-        mkdir -p AppDir/usr
-        cp -r deb-extract/usr/* AppDir/usr/
-        
-        # Create AppRun
-        cat > AppDir/AppRun << 'EOL'
-        #!/bin/bash
-        HERE="$(dirname "$(readlink -f "${0}")")"
-        exec "$HERE/usr/bin/Windsurf" "$@"
-        EOL
-        chmod +x AppDir/AppRun
+- name: Build AppImage
+  run: |
+    ./appimagetool-x86_64.AppImage AppDir Windsurf-1.2.5-x86_64.AppImage
 
-        # Create desktop file
-        mkdir -p AppDir/usr/share/applications
-        cat > AppDir/usr/share/applications/Windsurf.desktop << 'EOL'
-        [Desktop Entry]
-        Name=Windsurf
-        Exec=AppRun
-        Icon=windsurf
-        Type=Application
-        Categories=Utility;
-        EOL
-
-    - name: Download appimagetool
-      run: |
-        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-        chmod +x appimagetool-x86_64.AppImage
-
-    - name: Build AppImage
-      run: |
-        ./appimagetool-x86_64.AppImage AppDir Windsurf-1.2.5-x86_64.AppImage
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: Windsurf-AppImage
-        path: Windsurf-1.2.5-x86_64.AppImage
+- name: Upload Artifact
+  uses: actions/upload-artifact@v3
+  with:
+    name: Windsurf-AppImage
+    path: Windsurf-1.2.5-x86_64.AppImage
