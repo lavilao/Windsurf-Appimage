@@ -1,37 +1,74 @@
-name: Modern AppImage Build
+name: Build Windsurf Editor AppImage
 
 on:
-  workflow_dispatch:
-
-env:
-  NODE_VERSION: '20'  # Compatible with Ubuntu 24.04[4][6]
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+  build-appimage:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
+      # Step 1: Checkout the repository (if needed)
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v5
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
+      # Step 2: Fetch the PKGBUILD file from AUR
+      - name: Fetch PKGBUILD from AUR
+        run: |
+          curl -o PKGBUILD https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf
 
-    - name: Build AppImage
-      run: |
-        # Modern build commands here
-        ./build.sh
+      # Step 3: Parse the PKGBUILD to get the source URL and version
+      - name: Parse PKGBUILD for source URL and version
+        id: parse-pkgbuild
+        run: |
+          source ./PKGBUILD
+          echo "pkgver=${pkgver}"
+          echo "source_url=${source[0]}"
+          echo "PKGVER=${pkgver}" >> $GITHUB_ENV
+          echo "SOURCE_URL=${source[0]}" >> $GITHUB_ENV
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v5
-      with:
-        name: appimage-build
-        path: |
-          *.AppImage
-          build.logs
+      # Step 4: Download the .deb file
+      - name: Download .deb file
+        run: |
+          wget "${SOURCE_URL}"
+
+      # Step 5: Extract the .deb file
+      - name: Extract .deb file
+        run: |
+          dpkg-deb -x Windsurf-linux-x64-${{ env.PKGVER }}.deb windsurf-extracted
+
+      # Step 6: Create AppDir structure
+      - name: Create AppDir structure
+        run: |
+          mkdir -p windsurf.AppDir/usr/bin
+          cp -r windsurf-extracted/usr/* windsurf.AppDir/usr/
+          cp windsurf-extracted/usr/share/applications/*.desktop windsurf.AppDir/
+          cp windsurf-extracted/usr/share/icons/hicolor/512x512/apps/*.png windsurf.AppDir/
+
+      # Step 7: Download appimagetool
+      - name: Download appimagetool
+        run: |
+          wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+      # Step 8: Create the AppImage
+      - name: Create AppImage
+        run: |
+          ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-Editor-${{ env.PKGVER }}.AppImage
+
+      # Step 9: Generate .zsync file for delta updates
+      - name: Generate .zsync file
+        run: |
+          ./appimagetool-x86_64.AppImage --updateinformation "zsync|https://github.com/yourusername/yourrepo/releases/download/latest/Windsurf-Editor-${{ env.PKGVER }}.AppImage.zsync" Windsurf-Editor-${{ env.PKGVER }}.AppImage
+
+      # Step 10: Upload AppImage and .zsync file to GitHub Releases
+      - name: Upload AppImage to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            Windsurf-Editor-${{ env.PKGVER }}.AppImage
+            Windsurf-Editor-${{ env.PKGVER }}.AppImage.zsync
