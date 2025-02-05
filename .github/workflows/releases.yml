@@ -50,7 +50,7 @@ jobs:
         appimage-builder --recipe AppImageBuilder.yml
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # Changed from v3
       with:
-        name: Windsurf-AppImage
-        path: Windsurf-*-x86_64.AppImage
+          name: Windsurf-AppImage
+          path: Windsurf-1.2.5-x86_64.AppImage
