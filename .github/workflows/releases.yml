@@ -47,8 +47,13 @@ jobs:
           mkdir -p windsurf.AppDir/usr/bin
           cp -r windsurf-extracted/usr/* windsurf.AppDir/usr/
           cp windsurf-extracted/usr/share/applications/*.desktop windsurf.AppDir/
-          cp windsurf-extracted/usr/share/icons/hicolor/512x512/apps/*.png windsurf.AppDir/
+      
 
+          if [ -d "windsurf-extracted/usr/share/icons/hicolor/512x512/apps" ]; then
+            cp windsurf-extracted/usr/share/icons/hicolor/512x512/apps/*.png windsurf.AppDir/
+          else
+            echo "Icon directory not found. Skipping icon copy."
+          fi
       # Step 7: Download appimagetool
       - name: Download appimagetool
         run: |
