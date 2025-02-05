@@ -1,56 +1,37 @@
-name: Create Robust AppImage
+name: Modern AppImage Build
 
 on:
   workflow_dispatch:
 
+env:
+  NODE_VERSION: '20'  # Compatible with Ubuntu 24.04[4][6]
+
 jobs:
-  build-appimage:
-    runs-on: ubuntu-latest
-    container: ubuntu:18.04  # For wider compatibility
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up environment
-      run: |
-        apt-get update
-        apt-get install -y wget curl tar zstd libfuse2 fuse python3-pip
-
-    - name: Install appimage-builder
-      run: |
-        pip3 install appimage-builder
-
-    - name: Download DEB package
-      run: wget https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt/pool/main/w/windsurf/Windsurf-linux-x64-1.2.5.deb
-
-    - name: Extract DEB package
-      run: |
-        mkdir -p deb-extract
-        ar x Windsurf-linux-x64-1.2.5.deb --output=deb-extract
-        cd deb-extract
-        tar xf data.tar.* --use-compress-program=unzstd
-
-    - name: Prepare AppDir structure
-      run: |
-        mkdir -p AppDir/usr
-        cp -r deb-extract/usr/* AppDir/usr/
-        
-    - name: Generate and execute recipe
-      run: |
-        cat > AppImageBuilder.yml << 'EOL'
-        version: 1
-        scripts:
-          include:
-            - usr/lib/
-            - usr/bin/
-        EOL
-        
-        appimage-builder --generate --recipe AppImageBuilder.yml
-        appimage-builder --recipe AppImageBuilder.yml
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4  # Changed from v3
+    - name: Checkout code
+      uses: actions/checkout@v5
       with:
-          name: Windsurf-AppImage
-          path: Windsurf-1.2.5-x86_64.AppImage
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Build AppImage
+      run: |
+        # Modern build commands here
+        ./build.sh
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v5
+      with:
+        name: appimage-build
+        path: |
+          *.AppImage
+          build.logs
