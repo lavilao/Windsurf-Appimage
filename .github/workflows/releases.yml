@@ -1,57 +1,56 @@
-steps:
-- name: Checkout repository
-  uses: actions/checkout@v4
+name: Create Robust AppImage
 
-- name: Set up environment
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y wget curl tar libfuse2
+on:
+  workflow_dispatch:
 
-- name: Download DEB package
-  run: wget https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt/pool/main/w/windsurf/Windsurf-linux-x64-1.2.5.deb
+jobs:
+  build-appimage:
+    runs-on: ubuntu-latest
+    container: ubuntu:18.04  # For wider compatibility
 
-- name: Extract DEB package
-  run: |
-    mkdir -p deb-extract
-    ar x Windsurf-linux-x64-1.2.5.deb --output=deb-extract
-    cd deb-extract
-    tar xf data.tar.*
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-- name: Prepare AppDir
-  run: |
-    mkdir -p AppDir/usr
-    cp -r deb-extract/usr/* AppDir/usr/
-    
-    # Create AppRun
-    cat > AppDir/AppRun << 'EOL'
-    #!/bin/bash
-    HERE="$(dirname "$(readlink -f "${0}")")"
-    exec "$HERE/usr/bin/Windsurf" "$@"
-    EOL
-    chmod +x AppDir/AppRun
+    - name: Set up environment
+      run: |
+        apt-get update
+        apt-get install -y wget curl tar zstd libfuse2 fuse python3-pip
 
-    # Create desktop file
-    mkdir -p AppDir/usr/share/applications
-    cat > AppDir/usr/share/applications/Windsurf.desktop << 'EOL'
-    [Desktop Entry]
-    Name=Windsurf
-    Exec=AppRun
-    Icon=windsurf
-    Type=Application
-    Categories=Utility;
-    EOL
+    - name: Install appimage-builder
+      run: |
+        pip3 install appimage-builder
 
-- name: Download appimagetool
-  run: |
-    wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-    chmod +x appimagetool-x86_64.AppImage
+    - name: Download DEB package
+      run: wget https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt/pool/main/w/windsurf/Windsurf-linux-x64-1.2.5.deb
 
-- name: Build AppImage
-  run: |
-    ./appimagetool-x86_64.AppImage AppDir Windsurf-1.2.5-x86_64.AppImage
+    - name: Extract DEB package
+      run: |
+        mkdir -p deb-extract
+        ar x Windsurf-linux-x64-1.2.5.deb --output=deb-extract
+        cd deb-extract
+        tar xf data.tar.* --use-compress-program=unzstd
 
-- name: Upload Artifact
-  uses: actions/upload-artifact@v3
-  with:
-    name: Windsurf-AppImage
-    path: Windsurf-1.2.5-x86_64.AppImage
+    - name: Prepare AppDir structure
+      run: |
+        mkdir -p AppDir/usr
+        cp -r deb-extract/usr/* AppDir/usr/
+        
+    - name: Generate and execute recipe
+      run: |
+        cat > AppImageBuilder.yml << 'EOL'
+        version: 1
+        scripts:
+          include:
+            - usr/lib/
+            - usr/bin/
+        EOL
+        
+        appimage-builder --generate --recipe AppImageBuilder.yml
+        appimage-builder --recipe AppImageBuilder.yml
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Windsurf-AppImage
+        path: Windsurf-*-x86_64.AppImage
