@@ -26,7 +26,7 @@ jobs:
 
       - name: Fetch PKGBUILD from AUR
         run: |
-          curl -o PKGBUILD https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf-bin
+          curl -o PKGBUILD https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf
 
       - name: Parse PKGBUILD for source URL and version
         id: parse-pkgbuild
