@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget curl file
+          sudo apt-get install -y wget curl file imagemagick
 
       - name: Fetch PKGBUILD from AUR
         run: |
@@ -59,19 +59,66 @@ jobs:
           # Copy desktop file from our repo (customized version)
           cp app.desktop windsurf.AppDir/windsurf.desktop
 
-          # Find and copy icon
-          if [ -d "windsurf-extracted/usr/share/icons" ]; then
-            # Try to find the largest icon
-            ICON_FILE=$(find windsurf-extracted/usr/share/icons -name "*.png" | head -1)
-            if [ -n "$ICON_FILE" ]; then
-              cp "$ICON_FILE" windsurf.AppDir/windsurf.png
-            else
-              echo "No PNG icon found, trying SVG"
-              ICON_FILE=$(find windsurf-extracted/usr/share/icons -name "*.svg" | head -1)
-              if [ -n "$ICON_FILE" ]; then
-                cp "$ICON_FILE" windsurf.AppDir/windsurf.svg
-              fi
+          # Debug: List available icons
+          echo "Available icons:"
+          find windsurf-extracted -name "*.png" -o -name "*.svg" | head -10
+
+          # Find and copy icon - try multiple strategies
+          ICON_FOUND=false
+
+          # Strategy 1: Look for windsurf-specific icons
+          for size in 512 256 128 64 48; do
+            ICON_PATH=$(find windsurf-extracted -path "*${size}x${size}*" -name "*windsurf*" -o -path "*${size}x${size}*" -name "*code*" | head -1)
+            if [ -n "$ICON_PATH" ]; then
+              echo "Found icon at: $ICON_PATH"
+              cp "$ICON_PATH" windsurf.AppDir/windsurf.png
+              ICON_FOUND=true
+              break
             fi
+          done
+
+          # Strategy 2: Look for any large icon if windsurf-specific not found
+          if [ "$ICON_FOUND" = false ]; then
+            for size in 512 256 128; do
+              ICON_PATH=$(find windsurf-extracted -path "*${size}x${size}*" -name "*.png" | head -1)
+              if [ -n "$ICON_PATH" ]; then
+                echo "Found fallback icon at: $ICON_PATH"
+                cp "$ICON_PATH" windsurf.AppDir/windsurf.png
+                ICON_FOUND=true
+                break
+              fi
+            done
+          fi
+
+          # Strategy 3: Use any PNG icon as last resort
+          if [ "$ICON_FOUND" = false ]; then
+            ICON_PATH=$(find windsurf-extracted -name "*.png" | head -1)
+            if [ -n "$ICON_PATH" ]; then
+              echo "Found any PNG icon at: $ICON_PATH"
+              cp "$ICON_PATH" windsurf.AppDir/windsurf.png
+              ICON_FOUND=true
+            fi
+          fi
+
+          # Strategy 4: Create a default icon if none found
+          if [ "$ICON_FOUND" = false ]; then
+            echo "No icon found, creating default 256x256 PNG"
+            # Create a simple default icon using ImageMagick if available, or download one
+            if command -v convert >/dev/null 2>&1; then
+              convert -size 256x256 xc:lightblue -gravity center -pointsize 32 -fill black -annotate +0+0 "W" windsurf.AppDir/windsurf.png
+            else
+              # Download a generic code editor icon
+              wget -O windsurf.AppDir/windsurf.png "https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/file_type_vscode.png" || \
+              echo "Could not create or download icon"
+            fi
+          fi
+
+          # Verify icon exists
+          if [ -f "windsurf.AppDir/windsurf.png" ]; then
+            echo "Icon successfully placed: windsurf.AppDir/windsurf.png"
+            ls -la windsurf.AppDir/windsurf.png
+          else
+            echo "WARNING: No icon file created"
           fi
 
           # Create AppRun script

@@ -6,11 +6,11 @@ GenericName=AI Code Editor
 Comment=The AI-first code editor
 Exec=windsurf --unity-launch %F
 Icon=windsurf
-Categories=TextEditor;Development;IDE;
+Categories=TextEditor;Development;IDE;Utility;
 StartupWMClass=windsurf
 StartupNotify=true
 Keywords=windsurf;code;editor;ide;development;ai;
-MimeType=text/plain;text/x-chdr;text/x-csrc;text/x-c++hdr;text/x-c++src;text/x-java;text/x-dsrc;text/x-pascal;text/x-perl;text/x-python;application/x-php;application/x-httpd-php3;application/x-httpd-php4;application/x-httpd-php5;application/xml;text/html;text/css;text/x-sql;text/x-diff;x-directory/normal;inode/directory;application/x-code-workspace;
+MimeType=text/plain;text/x-chdr;text/x-csrc;text/x-c++hdr;text/x-c++src;text/x-java;text/x-dsrc;text/x-pascal;text/x-perl;text/x-python;application/x-php;application/x-httpd-php3;application/x-httpd-php4;application/x-httpd-php5;application/xml;text/html;text/css;text/x-sql;text/x-diff;inode/directory;application/x-code-workspace;
 Actions=new-empty-window;
 
 [Desktop Action new-empty-window]
