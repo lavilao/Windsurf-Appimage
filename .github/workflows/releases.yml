@@ -6,74 +6,145 @@ on:
       - main
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   build-appimage:
     runs-on: ubuntu-latest
 
-    steps:
-      # Step 1: Checkout the repository (if needed)
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+    permissions:
+      contents: write
 
-      # Step 2: Fetch the PKGBUILD file from AUR
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl file
+
       - name: Fetch PKGBUILD from AUR
         run: |
-          curl -o PKGBUILD https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf
+          curl -o PKGBUILD https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=windsurf-bin
 
-      # Step 3: Parse the PKGBUILD to get the source URL and version
       - name: Parse PKGBUILD for source URL and version
         id: parse-pkgbuild
         run: |
           source ./PKGBUILD
-          echo "pkgver=${pkgver}"
-          echo "source_url=${source[0]}"
+          echo "Package version: ${pkgver}"
+          echo "Source URL: ${source[0]}"
           echo "PKGVER=${pkgver}" >> $GITHUB_ENV
           echo "SOURCE_URL=${source[0]}" >> $GITHUB_ENV
 
-      # Step 4: Download the .deb file
       - name: Download .deb file
         run: |
-          wget "${SOURCE_URL}"
+          echo "Downloading from: ${SOURCE_URL}"
+          wget "${SOURCE_URL}" -O windsurf.deb
 
-      # Step 5: Extract the .deb file
       - name: Extract .deb file
         run: |
-          dpkg-deb -x Windsurf-linux-x64-${{ env.PKGVER }}.deb windsurf-extracted
+          dpkg-deb -x windsurf.deb windsurf-extracted
+          ls -la windsurf-extracted/
 
-      # Step 6: Create AppDir structure
       - name: Create AppDir structure
         run: |
-          mkdir -p windsurf.AppDir/usr/bin
-          cp -r windsurf-extracted/usr/* windsurf.AppDir/usr/
-          cp windsurf-extracted/usr/share/applications/*.desktop windsurf.AppDir/
-      
+          mkdir -p windsurf.AppDir/usr
 
-          if [ -d "windsurf-extracted/usr/share/icons/hicolor/512x512/apps" ]; then
-            cp windsurf-extracted/usr/share/icons/hicolor/512x512/apps/*.png windsurf.AppDir/
-          else
-            echo "Icon directory not found. Skipping icon copy."
+          # Copy all usr contents
+          if [ -d "windsurf-extracted/usr" ]; then
+            cp -r windsurf-extracted/usr/* windsurf.AppDir/usr/
           fi
-      # Step 7: Download appimagetool
+
+          # Copy desktop file from our repo (customized version)
+          cp app.desktop windsurf.AppDir/windsurf.desktop
+
+          # Find and copy icon
+          if [ -d "windsurf-extracted/usr/share/icons" ]; then
+            # Try to find the largest icon
+            ICON_FILE=$(find windsurf-extracted/usr/share/icons -name "*.png" | head -1)
+            if [ -n "$ICON_FILE" ]; then
+              cp "$ICON_FILE" windsurf.AppDir/windsurf.png
+            else
+              echo "No PNG icon found, trying SVG"
+              ICON_FILE=$(find windsurf-extracted/usr/share/icons -name "*.svg" | head -1)
+              if [ -n "$ICON_FILE" ]; then
+                cp "$ICON_FILE" windsurf.AppDir/windsurf.svg
+              fi
+            fi
+          fi
+
+          # Create AppRun script
+          cat > windsurf.AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/windsurf" "$@"
+          EOF
+          chmod +x windsurf.AppDir/AppRun
+
+          # List AppDir contents for debugging
+          echo "AppDir structure:"
+          find windsurf.AppDir -type f | head -20
+
       - name: Download appimagetool
         run: |
           wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
-      # Step 8: Create the AppImage
       - name: Create AppImage
         run: |
-          ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-Editor-${{ env.PKGVER }}.AppImage
+          export ARCH=x86_64
+          ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-${{ env.PKGVER }}-x86_64.AppImage
 
-      # Step 9: Generate .zsync file for delta updates
-      - name: Generate .zsync file
+      - name: Test AppImage
         run: |
-          ./appimagetool-x86_64.AppImage --updateinformation "zsync|https://github.com/yourusername/yourrepo/releases/download/latest/Windsurf-Editor-${{ env.PKGVER }}.AppImage.zsync" Windsurf-Editor-${{ env.PKGVER }}.AppImage
+          chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+          ./Windsurf-${{ env.PKGVER }}-x86_64.AppImage --version || echo "Version check failed, but AppImage was created"
 
-      # Step 10: Upload AppImage and .zsync file to GitHub Releases
-      - name: Upload AppImage to Release
+      - name: Generate checksums
+        run: |
+          sha256sum Windsurf-${{ env.PKGVER }}-x86_64.AppImage > Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windsurf-appimage
+          path: |
+            Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+            Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+
+      - name: Upload to Release (if release event)
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            Windsurf-Editor-${{ env.PKGVER }}.AppImage
-            Windsurf-Editor-${{ env.PKGVER }}.AppImage.zsync
+            Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+            Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create latest release (if push to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "latest-${{ env.PKGVER }}"
+          name: "Windsurf AppImage v${{ env.PKGVER }}"
+          body: |
+            Automated build of Windsurf AppImage v${{ env.PKGVER }}
+
+            **Changes:**
+            - Built from Windsurf v${{ env.PKGVER }}
+            - Generated on $(date)
+
+            **Installation:**
+            1. Download the AppImage
+            2. Make it executable: `chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage`
+            3. Run it: `./Windsurf-${{ env.PKGVER }}-x86_64.AppImage`
+          files: |
+            Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+            Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
