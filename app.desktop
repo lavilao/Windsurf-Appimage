@@ -4,7 +4,7 @@ Type=Application
 Name=Windsurf
 GenericName=AI Code Editor
 Comment=The AI-first code editor
-Exec=windsurf --unity-launch %F
+Exec=AppRun --unity-launch %F
 Icon=windsurf
 Categories=TextEditor;Development;IDE;Utility;
 StartupWMClass=windsurf
@@ -15,5 +15,5 @@ Actions=new-empty-window;
 
 [Desktop Action new-empty-window]
 Name=New Empty Window
-Exec=windsurf --new-window %F
+Exec=AppRun --new-window %F
 Icon=windsurf

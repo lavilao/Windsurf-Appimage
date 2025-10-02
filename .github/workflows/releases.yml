@@ -56,6 +56,14 @@ jobs:
             cp -r windsurf-extracted/usr/* windsurf.AppDir/usr/
           fi
 
+          # Debug: Check the actual structure
+          echo "Extracted structure:"
+          find windsurf-extracted/usr -maxdepth 3 -type d | head -10
+          echo "Looking for windsurf binary:"
+          find windsurf-extracted -name "windsurf" -type f
+          echo "Contents of usr/share/windsurf:"
+          ls -la windsurf-extracted/usr/share/windsurf/ | head -10
+
           # Copy desktop file from our repo (customized version)
           cp app.desktop windsurf.AppDir/windsurf.desktop
 
@@ -121,19 +129,61 @@ jobs:
             echo "WARNING: No icon file created"
           fi
 
-          # Create AppRun script
+          # Create AppRun script for Windsurf's actual structure
           cat > windsurf.AppDir/AppRun << 'EOF'
           #!/bin/bash
           HERE="$(dirname "$(readlink -f "${0}")")"
-          export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/windsurf" "$@"
+          WINDSURF_DIR="${HERE}/usr/share/windsurf"
+
+          # Check if windsurf binary exists
+          if [ ! -f "${WINDSURF_DIR}/windsurf" ]; then
+            echo "Error: Windsurf binary not found at ${WINDSURF_DIR}/windsurf"
+            echo "Available files in ${WINDSURF_DIR}:"
+            ls -la "${WINDSURF_DIR}/" 2>/dev/null || echo "Directory not found"
+            exit 1
+          fi
+
+          # Set up environment
+          export PATH="${WINDSURF_DIR}:${PATH}"
+          export LD_LIBRARY_PATH="${WINDSURF_DIR}:${LD_LIBRARY_PATH}"
+
+          # Set Chrome/Electron environment variables
+          export CHROME_WRAPPER="${WINDSURF_DIR}/windsurf"
+          export ELECTRON_IS_DEV=0
+          export ELECTRON_NO_SANDBOX=1
+
+          # Change to windsurf directory and execute
+          cd "${WINDSURF_DIR}"
+          exec "${WINDSURF_DIR}/windsurf" "$@"
           EOF
           chmod +x windsurf.AppDir/AppRun
 
           # List AppDir contents for debugging
           echo "AppDir structure:"
           find windsurf.AppDir -type f | head -20
+
+      - name: Verify Windsurf binary
+        run: |
+          WINDSURF_BINARY="windsurf.AppDir/usr/share/windsurf/windsurf"
+
+          if [ ! -f "$WINDSURF_BINARY" ]; then
+            echo "ERROR: Windsurf binary not found at $WINDSURF_BINARY"
+            echo "Available files in windsurf.AppDir/usr/share/windsurf/:"
+            ls -la windsurf.AppDir/usr/share/windsurf/ || echo "Directory not found"
+            echo ""
+            echo "Full AppDir structure:"
+            find windsurf.AppDir -name "windsurf" -type f
+            exit 1
+          fi
+
+          if [ ! -x "$WINDSURF_BINARY" ]; then
+            echo "Making windsurf binary executable..."
+            chmod +x "$WINDSURF_BINARY"
+          fi
+
+          echo "Windsurf binary verified at: $WINDSURF_BINARY"
+          ls -la "$WINDSURF_BINARY"
+          file "$WINDSURF_BINARY"
 
       - name: Download appimagetool
         run: |
