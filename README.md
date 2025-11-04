@@ -1,5 +1,5 @@
 # Windsurf AppImage Builder
-
+.
 This repository builds AppImage packages for the Windsurf AI code editor automatically using GitHub Actions.
 
 ## What is Windsurf?
