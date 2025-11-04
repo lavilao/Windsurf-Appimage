@@ -190,12 +190,22 @@ jobs:
           wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
 
-      - name: Create AppImage
-        run: |
-          export ARCH=x86_64
-          ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+       - name: Create AppImage
+         run: |
+           export ARCH=x86_64
+           ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-${{ env.PKGVER }}-x86_64.AppImage
 
-      - name: Test AppImage
+       - name: Extract AppImage for update embedding
+         run: |
+           chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+           ./Windsurf-${{ env.PKGVER }}-x86_64.AppImage --appimage-extract
+           mv squashfs-root windsurf.AppDir.updated
+
+       - name: Re-pack AppImage with update information
+         run: |
+           ./appimagetool-x86_64.AppImage -u "gh-releases-zsync|${{ github.repository_owner }}|${{ github.event.repository.name }}|Windsurf-*-x86_64.AppImage" windsurf.AppDir.updated Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+
+       - name: Test AppImage
         run: |
           chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage
           ./Windsurf-${{ env.PKGVER }}-x86_64.AppImage --version || echo "Version check failed, but AppImage was created"
@@ -204,23 +214,25 @@ jobs:
         run: |
           sha256sum Windsurf-${{ env.PKGVER }}-x86_64.AppImage > Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windsurf-appimage
-          path: |
-            Windsurf-${{ env.PKGVER }}-x86_64.AppImage
-            Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+       - name: Upload artifacts
+         uses: actions/upload-artifact@v4
+         with:
+           name: windsurf-appimage
+           path: |
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage.zsync
 
-      - name: Upload to Release (if release event)
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            Windsurf-${{ env.PKGVER }}-x86_64.AppImage
-            Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       - name: Upload to Release (if release event)
+         if: github.event_name == 'release'
+         uses: softprops/action-gh-release@v1
+         with:
+           files: |
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage.zsync
+         env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create latest release (if push to main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -239,9 +251,10 @@ jobs:
             1. Download the AppImage
             2. Make it executable: `chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage`
             3. Run it: `./Windsurf-${{ env.PKGVER }}-x86_64.AppImage`
-          files: |
-            Windsurf-${{ env.PKGVER }}-x86_64.AppImage
-            Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
-          prerelease: false
+           files: |
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage.sha256
+             Windsurf-${{ env.PKGVER }}-x86_64.AppImage.zsync
+           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
