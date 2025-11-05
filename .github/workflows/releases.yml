@@ -185,27 +185,27 @@ jobs:
           ls -la "$WINDSURF_BINARY"
           file "$WINDSURF_BINARY"
 
-      - name: Download appimagetool
+       - name: Download appimagetool
+         run: |
+           wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+           chmod +x appimagetool-x86_64.AppImage
+
+      - name: Create AppImage
         run: |
-          wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
+          export ARCH=x86_64
+          ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-${{ env.PKGVER }}-x86_64.AppImage
 
-       - name: Create AppImage
-         run: |
-           export ARCH=x86_64
-           ./appimagetool-x86_64.AppImage windsurf.AppDir Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+      - name: Extract AppImage for update embedding
+        run: |
+          chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage
+          ./Windsurf-${{ env.PKGVER }}-x86_64.AppImage --appimage-extract
+          mv squashfs-root windsurf.AppDir.updated
 
-       - name: Extract AppImage for update embedding
-         run: |
-           chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage
-           ./Windsurf-${{ env.PKGVER }}-x86_64.AppImage --appimage-extract
-           mv squashfs-root windsurf.AppDir.updated
+      - name: Re-pack AppImage with update information
+        run: |
+          ./appimagetool-x86_64.AppImage -u "gh-releases-zsync|${{ github.repository_owner }}|${{ github.event.repository.name }}|Windsurf-*-x86_64.AppImage" windsurf.AppDir.updated Windsurf-${{ env.PKGVER }}-x86_64.AppImage
 
-       - name: Re-pack AppImage with update information
-         run: |
-           ./appimagetool-x86_64.AppImage -u "gh-releases-zsync|${{ github.repository_owner }}|${{ github.event.repository.name }}|Windsurf-*-x86_64.AppImage" windsurf.AppDir.updated Windsurf-${{ env.PKGVER }}-x86_64.AppImage
-
-       - name: Test AppImage
+      - name: Test AppImage
         run: |
           chmod +x Windsurf-${{ env.PKGVER }}-x86_64.AppImage
           ./Windsurf-${{ env.PKGVER }}-x86_64.AppImage --version || echo "Version check failed, but AppImage was created"
