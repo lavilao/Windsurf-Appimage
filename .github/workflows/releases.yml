@@ -1,6 +1,8 @@
 name: Build Windsurf Editor AppImage
 
 on:
+  schedule:
+    - cron: "5 */12 * * *"
   push:
     branches:
       - main
